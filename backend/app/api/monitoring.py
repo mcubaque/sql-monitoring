@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from typing import Dict, Any
+from typing import Dict, Any, List
 import time
 import pymssql
 from ..core.config import settings
@@ -153,3 +153,277 @@ async def get_dashboard_overview() -> Dict[str, Any]:
         if conn:
             conn.close()
         return {"error": f"Dashboard query failed: {str(e)}"}
+
+# ===== NUEVOS ENDPOINTS PARA PERFORMANCE =====
+
+@router.get("/top-slow-queries")
+async def get_top_slow_queries() -> Dict[str, Any]:
+    """Obtiene las consultas más lentas del servidor"""
+    conn = get_sql_connection()
+    if not conn:
+        return {"error": "Cannot connect to SQL Server", "queries": []}
+    
+    try:
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT TOP 10
+                SUBSTRING(st.text, (qs.statement_start_offset/2)+1, 
+                    ((CASE qs.statement_end_offset 
+                        WHEN -1 THEN DATALENGTH(st.text)
+                        ELSE qs.statement_end_offset 
+                    END - qs.statement_start_offset)/2) + 1) AS query_text,
+                qs.total_elapsed_time / qs.execution_count AS avg_duration_ms,
+                qs.execution_count,
+                qs.total_worker_time / qs.execution_count AS avg_cpu_ms,
+                qs.last_execution_time,
+                DB_NAME(st.dbid) AS database_name,
+                qs.total_elapsed_time / 1000 AS total_duration_ms
+            FROM sys.dm_exec_query_stats qs
+            CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
+            WHERE st.text IS NOT NULL
+            ORDER BY qs.total_elapsed_time / qs.execution_count DESC
+        """)
+        
+        queries = []
+        for row in cursor.fetchall():
+            query_text = row[0][:100] + "..." if len(row[0]) > 100 else row[0]
+            queries.append({
+                "query": query_text.strip(),
+                "avg_duration_ms": round(float(row[1]) / 1000, 0) if row[1] else 0,  # Convertir a ms
+                "execution_count": row[2],
+                "avg_cpu_ms": round(float(row[3]) / 1000, 0) if row[3] else 0,
+                "last_execution": row[4].strftime("%Y-%m-%d %H:%M:%S") if row[4] else "N/A",
+                "database": row[5] if row[5] else "N/A",
+                "total_duration_ms": round(float(row[6]), 0) if row[6] else 0
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return {
+            "timestamp": time.time(),
+            "queries": queries
+        }
+        
+    except Exception as e:
+        if conn:
+            conn.close()
+        return {"error": f"Query failed: {str(e)}", "queries": []}
+
+@router.get("/top-frequent-queries")
+async def get_top_frequent_queries() -> Dict[str, Any]:
+    """Obtiene las consultas más frecuentes"""
+    conn = get_sql_connection()
+    if not conn:
+        return {"error": "Cannot connect to SQL Server", "queries": []}
+    
+    try:
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT TOP 10
+                SUBSTRING(st.text, (qs.statement_start_offset/2)+1, 
+                    ((CASE qs.statement_end_offset 
+                        WHEN -1 THEN DATALENGTH(st.text)
+                        ELSE qs.statement_end_offset 
+                    END - qs.statement_start_offset)/2) + 1) AS query_text,
+                qs.execution_count,
+                qs.total_elapsed_time / qs.execution_count AS avg_duration_ms,
+                qs.total_worker_time / 1000 AS total_cpu_ms,
+                DB_NAME(st.dbid) AS database_name,
+                qs.last_execution_time
+            FROM sys.dm_exec_query_stats qs
+            CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
+            WHERE st.text IS NOT NULL
+            ORDER BY qs.execution_count DESC
+        """)
+        
+        queries = []
+        for row in cursor.fetchall():
+            query_text = row[0][:100] + "..." if len(row[0]) > 100 else row[0]
+            queries.append({
+                "query": query_text.strip(),
+                "execution_count": row[1],
+                "avg_duration_ms": round(float(row[2]) / 1000, 0) if row[2] else 0,
+                "total_cpu_ms": round(float(row[3]), 0) if row[3] else 0,
+                "database": row[4] if row[4] else "N/A",
+                "last_execution": row[5].strftime("%Y-%m-%d %H:%M:%S") if row[5] else "N/A"
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return {
+            "timestamp": time.time(),
+            "queries": queries
+        }
+        
+    except Exception as e:
+        if conn:
+            conn.close()
+        return {"error": f"Query failed: {str(e)}", "queries": []}
+
+@router.get("/wait-types-stats")
+async def get_wait_types_stats() -> Dict[str, Any]:
+    """Obtiene estadísticas de wait types"""
+    conn = get_sql_connection()
+    if not conn:
+        return {"error": "Cannot connect to SQL Server", "waits": {}}
+    
+    try:
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT 
+                wait_type,
+                waiting_tasks_count,
+                wait_time_ms,
+                signal_wait_time_ms,
+                wait_time_ms - signal_wait_time_ms AS resource_wait_time_ms
+            FROM sys.dm_os_wait_stats
+            WHERE wait_type NOT IN (
+                'CLR_SEMAPHORE', 'LAZYWRITER_SLEEP', 'RESOURCE_QUEUE', 'SLEEP_TASK',
+                'SLEEP_SYSTEMTASK', 'SQLTRACE_BUFFER_FLUSH', 'WAITFOR', 'LOGMGR_QUEUE',
+                'CHECKPOINT_QUEUE', 'REQUEST_FOR_DEADLOCK_SEARCH', 'XE_TIMER_EVENT',
+                'BROKER_TO_FLUSH', 'BROKER_TASK_STOP', 'CLR_MANUAL_EVENT',
+                'CLR_AUTO_EVENT', 'DISPATCHER_QUEUE_SEMAPHORE', 'FT_IFTS_SCHEDULER_IDLE_WAIT',
+                'XE_DISPATCHER_WAIT', 'XE_DISPATCHER_JOIN', 'SQLTRACE_INCREMENTAL_FLUSH_SLEEP'
+            )
+            AND waiting_tasks_count > 0
+            ORDER BY wait_time_ms DESC
+        """)
+        
+        waits = cursor.fetchall()
+        
+        # Calcular totales y categorizar
+        total_wait_time = sum(row[2] for row in waits) if waits else 1
+        
+        cpu_waits = sum(row[2] for row in waits if 'CPU' in row[0] or 'SOS_SCHEDULER_YIELD' in row[0])
+        io_waits = sum(row[2] for row in waits if any(x in row[0] for x in ['PAGEIOLATCH', 'WRITELOG', 'IO_COMPLETION', 'BACKUPTHREAD']))
+        lock_waits = sum(row[2] for row in waits if any(x in row[0] for x in ['LCK_', 'LOCK_', 'DEADLOCK']))
+        memory_waits = sum(row[2] for row in waits if any(x in row[0] for x in ['RESOURCE_SEMAPHORE', 'MEMORY_', 'CMEMTHREAD']))
+        
+        cursor.close()
+        conn.close()
+        
+        return {
+            "timestamp": time.time(),
+            "waits": {
+                "cpu_wait_percent": round((cpu_waits / total_wait_time) * 100, 1) if total_wait_time > 0 else 0,
+                "io_wait_percent": round((io_waits / total_wait_time) * 100, 1) if total_wait_time > 0 else 0,
+                "lock_wait_percent": round((lock_waits / total_wait_time) * 100, 1) if total_wait_time > 0 else 0,
+                "memory_wait_percent": round((memory_waits / total_wait_time) * 100, 1) if total_wait_time > 0 else 0,
+                "total_waits": len(waits)
+            }
+        }
+        
+    except Exception as e:
+        if conn:
+            conn.close()
+        return {"error": f"Query failed: {str(e)}", "waits": {}}
+
+@router.get("/missing-indexes")
+async def get_missing_indexes() -> Dict[str, Any]:
+    """Obtiene recomendaciones de índices faltantes"""
+    conn = get_sql_connection()
+    if not conn:
+        return {"error": "Cannot connect to SQL Server", "indexes": []}
+    
+    try:
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT TOP 10
+                DB_NAME(mid.database_id) AS database_name,
+                OBJECT_NAME(mid.object_id, mid.database_id) AS table_name,
+                mid.equality_columns + ISNULL(', ' + mid.inequality_columns, '') AS suggested_columns,
+                migs.user_seeks + migs.user_scans AS total_seeks_scans,
+                CAST(migs.avg_total_user_cost * migs.avg_user_impact / 100.0 AS DECIMAL(18,2)) AS improvement_measure,
+                CASE 
+                    WHEN migs.avg_user_impact > 80 THEN 'Alto'
+                    WHEN migs.avg_user_impact > 50 THEN 'Medio'
+                    ELSE 'Bajo'
+                END AS impact_level
+            FROM sys.dm_db_missing_index_details mid
+            INNER JOIN sys.dm_db_missing_index_groups mig ON mid.index_handle = mig.index_handle
+            INNER JOIN sys.dm_db_missing_index_group_stats migs ON mig.index_group_handle = migs.group_handle
+            WHERE mid.database_id = DB_ID()  -- Solo BD actual
+            ORDER BY improvement_measure DESC
+        """)
+        
+        indexes = []
+        for row in cursor.fetchall():
+            indexes.append({
+                "database": row[0] if row[0] else "N/A",
+                "table": row[1] if row[1] else "N/A",
+                "suggested_columns": row[2] if row[2] else "N/A",
+                "seeks_scans": row[3] if row[3] else 0,
+                "improvement_measure": float(row[4]) if row[4] else 0,
+                "impact_level": row[5] if row[5] else "Bajo"
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return {
+            "timestamp": time.time(),
+            "indexes": indexes
+        }
+        
+    except Exception as e:
+        if conn:
+            conn.close()
+        return {"error": f"Query failed: {str(e)}", "indexes": []}
+
+@router.get("/index-fragmentation")
+async def get_index_fragmentation() -> Dict[str, Any]:
+    """Obtiene información de fragmentación de índices"""
+    conn = get_sql_connection()
+    if not conn:
+        return {"error": "Cannot connect to SQL Server", "indexes": []}
+    
+    try:
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT TOP 20
+                OBJECT_NAME(ips.object_id) AS table_name,
+                i.name AS index_name,
+                ips.avg_fragmentation_in_percent,
+                ips.page_count,
+                CASE 
+                    WHEN ips.avg_fragmentation_in_percent > 30 THEN 'REBUILD'
+                    WHEN ips.avg_fragmentation_in_percent > 10 THEN 'REORGANIZE'
+                    ELSE 'OK'
+                END AS recommendation
+            FROM sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'LIMITED') ips
+            INNER JOIN sys.indexes i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
+            WHERE ips.avg_fragmentation_in_percent > 5
+              AND ips.page_count > 100  -- Solo índices con suficientes páginas
+              AND i.index_id > 0  -- Excluir heaps
+            ORDER BY ips.avg_fragmentation_in_percent DESC
+        """)
+        
+        indexes = []
+        for row in cursor.fetchall():
+            indexes.append({
+                "table": row[0] if row[0] else "N/A",
+                "index_name": row[1] if row[1] else "N/A", 
+                "fragmentation_percent": round(float(row[2]), 1) if row[2] else 0,
+                "page_count": row[3] if row[3] else 0,
+                "recommendation": row[4] if row[4] else "OK"
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return {
+            "timestamp": time.time(),
+            "indexes": indexes
+        }
+        
+    except Exception as e:
+        if conn:
+            conn.close()
+        return {"error": f"Query failed: {str(e)}", "indexes": []}

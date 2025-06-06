@@ -11,28 +11,33 @@ let currentTab = 'dashboard';
 let isAuthenticated = false;
 
 function showTab(tabName) {
-    // Ocultar todas las pestañas
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.style.display = 'none';
     });
     
-    // Remover clase active de todos los botones
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     
-    // Mostrar la pestaña seleccionada
     document.getElementById(`tab-${tabName}`).style.display = 'block';
-    event.target.classList.add('active');
+    
+    if (event && event.target) {
+        event.target.classList.add('active');
+    } else {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            if (btn.textContent.toLowerCase().includes(tabName.toLowerCase())) {
+                btn.classList.add('active');
+            }
+        });
+    }
+    
     currentTab = tabName;
     
-    // Detener intervalos anteriores
     if (realtimeInterval) {
         clearInterval(realtimeInterval);
         realtimeInterval = null;
     }
     
-    // Inicializar funcionalidad específica por pestaña
     setTimeout(() => {
         switch(tabName) {
             case 'dashboard':
@@ -94,8 +99,7 @@ function initializePerformanceTab() {
         }
     }
     
-    // Simular carga de datos
-    loadPerformanceData();
+    loadRealPerformanceData();
 }
 
 function initializeSessionsTab() {
@@ -140,7 +144,6 @@ function initializeSecurityTab() {
 function initializeMaintenanceTab() {
     console.log('Inicializando Maintenance tab...');
     
-    // Inicializar gráfico de espacio en disco
     if (!diskSpaceChart) {
         const ctx = document.getElementById('diskSpaceChart')?.getContext('2d');
         if (ctx) {
@@ -168,7 +171,6 @@ function initializeMaintenanceTab() {
         }
     }
     
-    // Inicializar gráfico de crecimiento
     if (!growthChart) {
         const ctx = document.getElementById('growthChart')?.getContext('2d');
         if (ctx) {
@@ -204,7 +206,6 @@ function initializeMaintenanceTab() {
 function initializeRealtimeTab() {
     console.log('Inicializando Real-time tab...');
     
-    // Inicializar gráfico de I/O
     if (!ioChart) {
         const ctx = document.getElementById('ioChart')?.getContext('2d');
         if (ctx) {
@@ -240,7 +241,6 @@ function initializeRealtimeTab() {
         }
     }
     
-    // Inicializar gráfico de performance en tiempo real
     if (!realTimeChart) {
         const ctx = document.getElementById('realTimeChart')?.getContext('2d');
         if (ctx) {
@@ -276,7 +276,6 @@ function initializeRealtimeTab() {
         }
     }
     
-    // Iniciar actualizaciones en tiempo real (cada 2 segundos)
     realtimeInterval = setInterval(() => {
         if (currentTab === 'realtime' && isAuthenticated) {
             updateRealtimeData();
@@ -286,10 +285,254 @@ function initializeRealtimeTab() {
     loadRealtimeData();
 }
 
-// Funciones de carga de datos simulados
-function loadPerformanceData() {
-    // Actualizar placeholders con datos simulados
-    updatePerformancePlaceholders();
+async function loadRealPerformanceData() {
+    if (!isAuthenticated) return;
+    
+    try {
+        await loadSlowQueries();
+        await loadFrequentQueries();
+        await loadWaitTypes();
+        await loadMissingIndexes();
+        await loadIndexFragmentation();
+        console.log('Datos reales de Performance cargados');
+    } catch (error) {
+        console.error('Error cargando datos de Performance:', error);
+    }
+}
+
+async function loadSlowQueries() {
+    try {
+        const response = await fetch('/api/monitoring/top-slow-queries');
+        const data = await response.json();
+        
+        const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[0];
+        if (!placeholder) return;
+        
+        if (data.error) {
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error: ' + data.error + '</p>';
+            return;
+        }
+        
+        let content = '<table style="width: 100%; border-collapse: collapse;">';
+        content += '<thead style="background: #f7fafc;">';
+        content += '<tr>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Query</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Duración Prom (ms)</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Ejecuciones</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Base de Datos</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Última Ejecución</th>';
+        content += '</tr>';
+        content += '</thead>';
+        content += '<tbody>';
+        
+        if (data.queries && data.queries.length > 0) {
+            data.queries.forEach(query => {
+                const durationColor = query.avg_duration_ms > 5000 ? '#e53e3e' : 
+                                    query.avg_duration_ms > 1000 ? '#ed8936' : '#38a169';
+                content += '<tr>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">' + query.query + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: ' + durationColor + '; font-weight: bold;">' + query.avg_duration_ms.toLocaleString() + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + query.execution_count.toLocaleString() + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + query.database + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + query.last_execution + '</td>';
+                content += '</tr>';
+            });
+        } else {
+            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No se encontraron consultas lentas recientes</td></tr>';
+        }
+        
+        content += '</tbody></table>';
+        placeholder.innerHTML = content;
+        
+    } catch (error) {
+        console.error('Error loading slow queries:', error);
+        const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[0];
+        if (placeholder) {
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error cargando consultas lentas</p>';
+        }
+    }
+}
+
+async function loadFrequentQueries() {
+    try {
+        const response = await fetch('/api/monitoring/top-frequent-queries');
+        const data = await response.json();
+        
+        const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[1];
+        if (!placeholder) return;
+        
+        if (data.error) {
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error: ' + data.error + '</p>';
+            return;
+        }
+        
+        let content = '<table style="width: 100%; border-collapse: collapse;">';
+        content += '<thead style="background: #f7fafc;">';
+        content += '<tr>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Query</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Ejecuciones</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Promedio (ms)</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">CPU Total (ms)</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Base de Datos</th>';
+        content += '</tr>';
+        content += '</thead>';
+        content += '<tbody>';
+        
+        if (data.queries && data.queries.length > 0) {
+            data.queries.forEach(query => {
+                content += '<tr>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">' + query.query + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #3182ce; font-weight: bold;">' + query.execution_count.toLocaleString() + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + query.avg_duration_ms.toLocaleString() + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + query.total_cpu_ms.toLocaleString() + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + query.database + '</td>';
+                content += '</tr>';
+            });
+        } else {
+            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No se encontraron consultas frecuentes</td></tr>';
+        }
+        
+        content += '</tbody></table>';
+        placeholder.innerHTML = content;
+        
+    } catch (error) {
+        console.error('Error loading frequent queries:', error);
+        const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[1];
+        if (placeholder) {
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error cargando consultas frecuentes</p>';
+        }
+    }
+}
+
+async function loadWaitTypes() {
+    try {
+        const response = await fetch('/api/monitoring/wait-types-stats');
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Wait types error:', data.error);
+            return;
+        }
+        
+        const waitCards = document.querySelectorAll('#tab-performance .metrics-grid .metric-card .metric-value');
+        if (waitCards.length >= 4) {
+            waitCards[0].textContent = data.waits.cpu_wait_percent + '%';
+            waitCards[1].textContent = data.waits.io_wait_percent + '%';
+            waitCards[2].textContent = data.waits.lock_wait_percent + '%';
+            waitCards[3].textContent = data.waits.memory_wait_percent + '%';
+        }
+        
+    } catch (error) {
+        console.error('Error loading wait types:', error);
+    }
+}
+
+async function loadMissingIndexes() {
+    try {
+        const response = await fetch('/api/monitoring/missing-indexes');
+        const data = await response.json();
+        
+        const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[2];
+        if (!placeholder) return;
+        
+        if (data.error) {
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error: ' + data.error + '</p>';
+            return;
+        }
+        
+        let content = '<table style="width: 100%; border-collapse: collapse;">';
+        content += '<thead style="background: #f7fafc;">';
+        content += '<tr>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tabla</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Columnas Sugeridas</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Impacto</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Seeks/Scans</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Mejora</th>';
+        content += '</tr>';
+        content += '</thead>';
+        content += '<tbody>';
+        
+        if (data.indexes && data.indexes.length > 0) {
+            data.indexes.forEach(index => {
+                const impactColor = index.impact_level === 'Alto' ? '#e53e3e' : 
+                                  index.impact_level === 'Medio' ? '#ed8936' : '#38a169';
+                content += '<tr>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + index.table + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">' + index.suggested_columns + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: ' + impactColor + '; font-weight: bold;">' + index.impact_level + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + index.seeks_scans.toLocaleString() + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + index.improvement_measure + '</td>';
+                content += '</tr>';
+            });
+        } else {
+            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No se encontraron recomendaciones de índices</td></tr>';
+        }
+        
+        content += '</tbody></table>';
+        placeholder.innerHTML = content;
+        
+    } catch (error) {
+        console.error('Error loading missing indexes:', error);
+        const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[2];
+        if (placeholder) {
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error cargando índices faltantes</p>';
+        }
+    }
+}
+
+async function loadIndexFragmentation() {
+    try {
+        const response = await fetch('/api/monitoring/index-fragmentation');
+        const data = await response.json();
+        
+        const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[3];
+        if (!placeholder) return;
+        
+        if (data.error) {
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error: ' + data.error + '</p>';
+            return;
+        }
+        
+        let content = '<table style="width: 100%; border-collapse: collapse;">';
+        content += '<thead style="background: #f7fafc;">';
+        content += '<tr>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Índice</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tabla</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Fragmentación %</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Páginas</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Recomendación</th>';
+        content += '</tr>';
+        content += '</thead>';
+        content += '<tbody>';
+        
+        if (data.indexes && data.indexes.length > 0) {
+            data.indexes.forEach(index => {
+                const fragColor = index.fragmentation_percent > 30 ? '#e53e3e' : 
+                                index.fragmentation_percent > 10 ? '#ed8936' : '#38a169';
+                const recColor = index.recommendation === 'REBUILD' ? '#e53e3e' : 
+                               index.recommendation === 'REORGANIZE' ? '#ed8936' : '#38a169';
+                content += '<tr>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + index.index_name + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + index.table + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: ' + fragColor + '; font-weight: bold;">' + index.fragmentation_percent + '%</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">' + index.page_count.toLocaleString() + '</td>';
+                content += '<td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: ' + recColor + '; font-weight: bold;">' + index.recommendation + '</td>';
+                content += '</tr>';
+            });
+        } else {
+            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No se encontraron índices con fragmentación significativa</td></tr>';
+        }
+        
+        content += '</tbody></table>';
+        placeholder.innerHTML = content;
+        
+    } catch (error) {
+        console.error('Error loading index fragmentation:', error);
+        const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[3];
+        if (placeholder) {
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error cargando fragmentación de índices</p>';
+        }
+    }
 }
 
 function loadSessionsData() {
@@ -308,202 +551,20 @@ function loadRealtimeData() {
     updateRealtimePlaceholders();
 }
 
-function updatePerformancePlaceholders() {
-    const placeholders = document.querySelectorAll('#tab-performance .loading-placeholder');
-    placeholders.forEach((placeholder, index) => {
-        setTimeout(() => {
-            let content = '';
-            switch(index) {
-                case 0: // Top Consultas Lentas
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Query</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Duración (ms)</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Usuario</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Base de Datos</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">SELECT * FROM large_table WHERE...</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e; font-weight: bold;">45,230</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">app_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">ProductionDB</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">UPDATE inventory SET...</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936; font-weight: bold;">12,450</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">batch_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">InventoryDB</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
-                    break;
-                case 1: // Consultas Más Frecuentes
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Query</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Ejecuciones</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Promedio (ms)</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">CPU Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">SELECT user_id, name FROM users WHERE...</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #3182ce; font-weight: bold;">12,543</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">85</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">1,066 ms</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">INSERT INTO logs VALUES...</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #3182ce; font-weight: bold;">8,932</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">12</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">107 ms</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
-                    break;
-                case 2: // Índices Faltantes
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tabla</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Columnas Sugeridas</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Impacto</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Costo</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Orders</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">customer_id, order_date</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e; font-weight: bold;">Alto</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">8,542</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Products</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">category_id</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936; font-weight: bold;">Medio</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">2,156</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
-                    break;
-                case 3: // Fragmentación de Índices
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Índice</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tabla</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Fragmentación %</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Recomendación</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">IX_Orders_CustomerDate</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Orders</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e; font-weight: bold;">85.4%</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">REBUILD</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">IX_Products_Category</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Products</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936; font-weight: bold;">23.7%</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">REORGANIZE</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
-                    break;
-            }
-            placeholder.innerHTML = content;
-        }, 500 + (index * 300));
-    });
-}
-
 function updateSessionsPlaceholders() {
     const placeholders = document.querySelectorAll('#tab-sessions .loading-placeholder');
     placeholders.forEach((placeholder, index) => {
         setTimeout(() => {
             let content = '';
             switch(index) {
-                case 0: // Sesiones Activas Detalladas
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">SPID</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Usuario</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Host</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Programa</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Estado</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Duración</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">52</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">app_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">WEB-SERVER-01</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Microsoft SQL Server Management Studio</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #38a169;">running</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">00:02:15</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">78</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">batch_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">APP-SERVER-02</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">MyApp.exe</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e;">blocked</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">00:05:42</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
+                case 0:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>Sesiones activas se cargarán aquí...</p></div>';
                     break;
-                case 1: // Bloqueos y Deadlocks
-                    content = `
-                        <div style="color: #718096; text-align: center; padding: 20px;">
-                            <div style="font-size: 2rem; color: #38a169; margin-bottom: 10px;">✅</div>
-                            <p>No se detectaron bloqueos activos</p>
-                            <small style="color: #a0aec0;">Última verificación: ${new Date().toLocaleTimeString()}</small>
-                        </div>
-                    `;
+                case 1:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><div style="font-size: 2rem; color: #38a169; margin-bottom: 10px;">✅</div><p>No se detectaron bloqueos activos</p><small style="color: #a0aec0;">Última verificación: ' + new Date().toLocaleTimeString() + '</small></div>';
                     break;
-                case 2: // Sesiones Problemáticas
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">SPID</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tipo</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Duración</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">CPU (ms)</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Problema</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">123</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Long Running</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e;">00:15:30</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">45,230</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Consulta sin índice</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
+                case 2:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>Sesiones problemáticas se cargarán aquí...</p></div>';
                     break;
             }
             placeholder.innerHTML = content;
@@ -517,126 +578,17 @@ function updateSecurityPlaceholders() {
         setTimeout(() => {
             let content = '';
             switch(index) {
-                case 0: // Logins Fallidos
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Fecha/Hora</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Usuario</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">IP</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Razón</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date().toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">unknown_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">192.168.1.15</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e;">Password incorrect</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date(Date.now() - 300000).toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">admin</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">10.0.0.50</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936;">Login disabled</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
+                case 0:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>Logins fallidos se cargarán aquí...</p></div>';
                     break;
-                case 1: // Actividad Privilegiada
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Fecha/Hora</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Usuario</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Operación</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Objeto</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date().toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">sa</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e;">CREATE DATABASE</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">TestDB</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date(Date.now() - 600000).toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">admin_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936;">GRANT SYSADMIN</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">new_user</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
+                case 1:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>Actividad privilegiada se cargará aquí...</p></div>';
                     break;
-                case 2: // Cambios de Esquema
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Fecha/Hora</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Base de Datos</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Operación</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Objeto</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Usuario</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date().toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">ProductionDB</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #3182ce;">CREATE INDEX</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">IX_Orders_NewIndex</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">db_admin</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date(Date.now() - 1800000).toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">ProductionDB</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936;">ALTER TABLE</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Users</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">developer</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
+                case 2:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>Cambios de esquema se cargarán aquí...</p></div>';
                     break;
-                case 3: // Auditoría de Permisos
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Usuario/Rol</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tipo</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Permisos</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Base de Datos</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">sa</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e;">sysadmin</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">ALL</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">ALL</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">app_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #3182ce;">db_datareader</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">SELECT</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">ProductionDB</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">batch_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936;">db_datawriter</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">SELECT, INSERT, UPDATE</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">InventoryDB</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
+                case 3:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>Auditoría de permisos se cargará aquí...</p></div>';
                     break;
             }
             placeholder.innerHTML = content;
@@ -650,119 +602,14 @@ function updateMaintenancePlaceholders() {
         setTimeout(() => {
             let content = '';
             switch(index) {
-                case 0: // SQL Agent Jobs
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Job Name</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Estado</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Última Ejecución</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Próxima Ejecución</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Duración</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Database Backup - Full</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #38a169;">✅ Succeeded</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date(Date.now() - 3600000).toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Mañana 02:00</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">00:15:30</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Index Maintenance</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e;">❌ Failed</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date(Date.now() - 7200000).toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Domingo 01:00</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">--</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Log Backup</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #38a169;">✅ Succeeded</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date(Date.now() - 900000).toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">En 15 min</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">00:00:45</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
+                case 0:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>SQL Agent Jobs se cargarán aquí...</p></div>';
                     break;
-                case 1: // Estadísticas de Tablas
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tabla</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Registros</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tamaño (MB)</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Crecimiento (7d)</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Última Actualización</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Orders</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">2,547,893</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">1,250.5</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #38a169;">+45.2 MB</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Hace 2 min</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Products</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">15,420</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">24.8</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #3182ce;">+1.2 MB</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Hace 1 hora</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Users</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">89,342</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">156.7</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936;">+12.5 MB</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Hace 30 min</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
+                case 1:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>Estadísticas de tablas se cargarán aquí...</p></div>';
                     break;
-                case 2: // Integrity Checks
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Base de Datos</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Último DBCC CHECKDB</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Estado</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Errores</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Duración</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">ProductionDB</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date(Date.now() - 86400000).toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #38a169;">✅ OK</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">0</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">00:12:45</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">InventoryDB</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${new Date(Date.now() - 172800000).toLocaleString()}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #38a169;">✅ OK</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">0</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">00:05:12</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">LogsDB</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #e53e3e;">Hace 15 días</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936;">⚠️ Pendiente</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">--</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">--</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    `;
+                case 2:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>Integrity checks se cargarán aquí...</p></div>';
                     break;
             }
             placeholder.innerHTML = content;
@@ -776,52 +623,11 @@ function updateRealtimePlaceholders() {
         setTimeout(() => {
             let content = '';
             switch(index) {
-                case 0: // Live Query Activity
-                    content = `
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="background: #f7fafc;">
-                                <tr>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">SPID</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Query</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Usuario</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Duración</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">CPU</th>
-                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">145</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">SELECT * FROM Orders WHERE order_date...</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">app_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #38a169;">00:00:03</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">156 ms</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;"><span style="background: #38a169; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">RUNNING</span></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">167</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">UPDATE Inventory SET quantity...</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">batch_user</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #ed8936;">00:00:12</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">2,245 ms</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;"><span style="background: #ed8936; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">WAITING</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div class="realtime-indicator">
-                            <span class="pulse-dot"></span>
-                            <span>Actualizando cada 2 segundos</span>
-                        </div>
-                    `;
+                case 0:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><p>Actividad de consultas en vivo se cargará aquí...</p><div class="realtime-indicator"><span class="pulse-dot"></span><span>Actualizando cada 2 segundos</span></div></div>';
                     break;
-                case 1: // Lock Monitoring
-                    content = `
-                        <div style="color: #718096; text-align: center; padding: 20px;">
-                            <div style="font-size: 2rem; color: #38a169; margin-bottom: 10px;">🔓</div>
-                            <p>No se detectaron bloqueos activos</p>
-                            <small style="color: #a0aec0;">Monitoreando en tiempo real...</small>
-                        </div>
-                    `;
+                case 1:
+                    content = '<div style="color: #718096; text-align: center; padding: 20px;"><div style="font-size: 2rem; color: #38a169; margin-bottom: 10px;">🔓</div><p>No se detectaron bloqueos activos</p><small style="color: #a0aec0;">Monitoreando en tiempo real...</small></div>';
                     break;
             }
             placeholder.innerHTML = content;
@@ -830,24 +636,11 @@ function updateRealtimePlaceholders() {
 }
 
 function updateRealtimeData() {
-    // Actualizar métricas de tiempo real
-    const metrics = [
-        { id: 'Queries Esperando', value: Math.floor(Math.random() * 10) },
-        { id: 'I/O Waits', value: Math.floor(Math.random() * 50) },
-        { id: 'Lock Waits', value: Math.floor(Math.random() * 5) },
-        { id: 'CPU Waits', value: Math.floor(Math.random() * 20) },
-        { id: 'Active Connections', value: 45 + Math.floor(Math.random() * 20) },
-        { id: 'Idle Connections', value: 12 + Math.floor(Math.random() * 8) },
-        { id: 'Sleeping Sessions', value: 8 + Math.floor(Math.random() * 5) },
-        { id: 'Background Tasks', value: 3 + Math.floor(Math.random() * 3) }
-    ];
-    
-    // Actualizar gráficos de tiempo real
     if (ioChart && currentTab === 'realtime') {
         const now = new Date().toLocaleTimeString();
         ioChart.data.labels.push(now);
-        ioChart.data.datasets[0].data.push(Math.random() * 100 + 50); // Reads
-        ioChart.data.datasets[1].data.push(Math.random() * 80 + 30);  // Writes
+        ioChart.data.datasets[0].data.push(Math.random() * 100 + 50);
+        ioChart.data.datasets[1].data.push(Math.random() * 80 + 30);
         
         if (ioChart.data.labels.length > 20) {
             ioChart.data.labels.shift();
@@ -860,8 +653,8 @@ function updateRealtimeData() {
     if (realTimeChart && currentTab === 'realtime') {
         const now = new Date().toLocaleTimeString();
         realTimeChart.data.labels.push(now);
-        realTimeChart.data.datasets[0].data.push(Math.random() * 500 + 100); // Batch Requests
-        realTimeChart.data.datasets[1].data.push(Math.random() * 1000 + 200); // Page Lookups
+        realTimeChart.data.datasets[0].data.push(Math.random() * 500 + 100);
+        realTimeChart.data.datasets[1].data.push(Math.random() * 1000 + 200);
         
         if (realTimeChart.data.labels.length > 20) {
             realTimeChart.data.labels.shift();
@@ -872,7 +665,6 @@ function updateRealtimeData() {
     }
 }
 
-// Funciones originales del login y dashboard
 async function login() {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
@@ -917,7 +709,6 @@ function logout() {
         realtimeInterval = null;
     }
     
-    // Destruir todos los gráficos
     [systemChart, performanceChart, connectionsChart, diskSpaceChart, growthChart, ioChart, realTimeChart].forEach(chart => {
         if (chart) {
             chart.destroy();
@@ -1039,7 +830,7 @@ async function updateDashboardOverview() {
         document.getElementById('connection-status').textContent = '✅ Connected';
         document.getElementById('connection-status').className = 'status-connected';
         document.getElementById('server-name').textContent = data.server_info.name;
-        document.getElementById('server-uptime').textContent = `${data.server_info.uptime_days}d ${data.server_info.uptime_hours}h`;
+        document.getElementById('server-uptime').textContent = data.server_info.uptime_days + 'd ' + data.server_info.uptime_hours + 'h';
         document.getElementById('server-version').textContent = data.server_info.version;
         
         document.getElementById('total-sessions').textContent = data.session_stats.total_sessions;
@@ -1104,13 +895,8 @@ function updateAlerts(alerts) {
         
         alerts.forEach(alert => {
             const alertDiv = document.createElement('div');
-            alertDiv.className = `alert ${alert.level}`;
-            alertDiv.innerHTML = `
-                <div class="alert-message">
-                    <strong>${alert.message}</strong>
-                    <div class="alert-action">${alert.action}</div>
-                </div>
-            `;
+            alertDiv.className = 'alert ' + alert.level;
+            alertDiv.innerHTML = '<div class="alert-message"><strong>' + alert.message + '</strong><div class="alert-action">' + alert.action + '</div></div>';
             alertsContainer.appendChild(alertDiv);
         });
     } else {
