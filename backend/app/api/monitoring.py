@@ -348,7 +348,7 @@ async def get_missing_indexes() -> Dict[str, Any]:
             FROM sys.dm_db_missing_index_details mid
             INNER JOIN sys.dm_db_missing_index_groups mig ON mid.index_handle = mig.index_handle
             INNER JOIN sys.dm_db_missing_index_group_stats migs ON mig.index_group_handle = migs.group_handle
-            WHERE mid.database_id = DB_ID()  -- Solo BD actual
+            WHERE mid.database_id > 4  -- Solo bases de datos de usuario
             ORDER BY improvement_measure DESC
         """)
         
@@ -378,7 +378,7 @@ async def get_missing_indexes() -> Dict[str, Any]:
 
 @router.get("/index-fragmentation")
 async def get_index_fragmentation() -> Dict[str, Any]:
-    """Obtiene información de fragmentación de índices"""
+    """Obtiene información de fragmentación de índices de todas las bases de datos de usuario"""
     conn = get_sql_connection()
     if not conn:
         return {"error": "Cannot connect to SQL Server", "indexes": []}
@@ -386,41 +386,87 @@ async def get_index_fragmentation() -> Dict[str, Any]:
     try:
         cursor = conn.cursor()
         
+        # Primero obtenemos todas las bases de datos de usuario (excluyendo las del sistema)
         cursor.execute("""
-            SELECT TOP 20
-                OBJECT_NAME(ips.object_id) AS table_name,
-                i.name AS index_name,
-                ips.avg_fragmentation_in_percent,
-                ips.page_count,
-                CASE 
-                    WHEN ips.avg_fragmentation_in_percent > 30 THEN 'REBUILD'
-                    WHEN ips.avg_fragmentation_in_percent > 10 THEN 'REORGANIZE'
-                    ELSE 'OK'
-                END AS recommendation
-            FROM sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'LIMITED') ips
-            INNER JOIN sys.indexes i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
-            WHERE ips.avg_fragmentation_in_percent > 5
-              AND ips.page_count > 100  -- Solo índices con suficientes páginas
-              AND i.index_id > 0  -- Excluir heaps
-            ORDER BY ips.avg_fragmentation_in_percent DESC
+            SELECT name, database_id 
+            FROM sys.databases 
+            WHERE database_id > 4  -- Excluir master, tempdb, model, msdb
+              AND state = 0        -- Solo bases de datos ONLINE
+              AND is_read_only = 0 -- Solo bases de datos de lectura/escritura
+            ORDER BY name
         """)
         
-        indexes = []
-        for row in cursor.fetchall():
-            indexes.append({
-                "table": row[0] if row[0] else "N/A",
-                "index_name": row[1] if row[1] else "N/A", 
-                "fragmentation_percent": round(float(row[2]), 1) if row[2] else 0,
-                "page_count": row[3] if row[3] else 0,
-                "recommendation": row[4] if row[4] else "OK"
-            })
+        user_databases = cursor.fetchall()
+        all_indexes = []
+        
+        # Si no hay bases de datos de usuario, retornar vacío
+        if not user_databases:
+            cursor.close()
+            conn.close()
+            return {
+                "timestamp": time.time(),
+                "indexes": [],
+                "message": "No user databases found"
+            }
+        
+        # Recorrer cada base de datos de usuario
+        for db_name, db_id in user_databases:
+            try:
+                # Construir y ejecutar la consulta dinámicamente para cada BD
+                query = f"""
+                    USE [{db_name}];
+                    
+                    SELECT TOP 10
+                        '{db_name}' AS database_name,
+                        OBJECT_NAME(ips.object_id) AS table_name,
+                        i.name AS index_name,
+                        ips.avg_fragmentation_in_percent,
+                        ips.page_count,
+                        CASE 
+                            WHEN ips.avg_fragmentation_in_percent > 30 THEN 'REBUILD'
+                            WHEN ips.avg_fragmentation_in_percent > 10 THEN 'REORGANIZE'
+                            ELSE 'OK'
+                        END AS recommendation
+                    FROM sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'LIMITED') ips
+                    INNER JOIN sys.indexes i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
+                    WHERE ips.avg_fragmentation_in_percent > 5
+                      AND ips.page_count > 100  -- Solo índices con suficientes páginas
+                      AND i.index_id > 0  -- Excluir heaps
+                      AND ips.object_id > 100  -- Excluir objetos del sistema
+                    ORDER BY ips.avg_fragmentation_in_percent DESC
+                """
+                
+                cursor.execute(query)
+                db_indexes = cursor.fetchall()
+                
+                # Agregar los índices de esta BD al resultado total
+                for row in db_indexes:
+                    all_indexes.append({
+                        "database": row[0] if row[0] else "N/A",
+                        "table": row[1] if row[1] else "N/A",
+                        "index_name": row[2] if row[2] else "N/A", 
+                        "fragmentation_percent": round(float(row[3]), 1) if row[3] else 0,
+                        "page_count": row[4] if row[4] else 0,
+                        "recommendation": row[5] if row[5] else "OK"
+                    })
+                    
+            except Exception as db_error:
+                # Si hay error en una BD específica, continuar con las demás
+                print(f"Error processing database {db_name}: {db_error}")
+                continue
+        
+        # Ordenar todos los índices por fragmentación descendente y tomar solo los top 20
+        all_indexes.sort(key=lambda x: x["fragmentation_percent"], reverse=True)
+        top_indexes = all_indexes[:20]
         
         cursor.close()
         conn.close()
         
         return {
             "timestamp": time.time(),
-            "indexes": indexes
+            "indexes": top_indexes,
+            "databases_processed": len(user_databases),
+            "total_fragmented_indexes": len(all_indexes)
         }
         
     except Exception as e:
