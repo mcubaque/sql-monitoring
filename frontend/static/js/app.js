@@ -1,3 +1,142 @@
+// Función para cargar los datos de performance trends
+async function loadPerformanceTrends() {
+    try {
+        const response = await fetch('/api/monitoring/performance-trends');
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Performance trends error:', data.error);
+            // Aún así podemos usar los datos simulados
+        }
+        
+        // Actualizar el gráfico de performance con datos reales
+        if (performanceChart && data.trends) {
+            const labels = data.trends.map(trend => trend.timestamp);
+            const cpuData = data.trends.map(trend => trend.cpu_percent);
+            const memoryData = data.trends.map(trend => trend.memory_percent);
+            
+            performanceChart.data.labels = labels;
+            performanceChart.data.datasets[0].data = cpuData;
+            performanceChart.data.datasets[1].data = memoryData;
+            performanceChart.update();
+            
+            console.log('Performance trends cargados:', data.trends.length, 'puntos de datos');
+        }
+        
+    } catch (error) {
+        console.error('Error loading performance trends:', error);
+    }
+}
+
+// Función mejorada para cargar wait types
+async function loadWaitTypes() {
+    try {
+        const response = await fetch('/api/monitoring/wait-types-stats');
+        const data = await response.json();
+        
+        if (data.error && !data.waits) {
+            console.error('Wait types error:', data.error);
+            return;
+        }
+        
+        // Actualizar las tarjetas de wait types
+        const waitCards = document.querySelectorAll('#tab-performance .metrics-grid .metric-card .metric-value');
+        if (waitCards.length >= 4 && data.waits) {
+            waitCards[0].textContent = data.waits.cpu_wait_percent + '%';
+            waitCards[1].textContent = data.waits.io_wait_percent + '%';
+            waitCards[2].textContent = data.waits.lock_wait_percent + '%';
+            waitCards[3].textContent = data.waits.memory_wait_percent + '%';
+            
+            // Añadir colores según el porcentaje
+            waitCards[0].style.color = data.waits.cpu_wait_percent > 30 ? '#e53e3e' : '#667eea';
+            waitCards[1].style.color = data.waits.io_wait_percent > 50 ? '#e53e3e' : '#667eea';
+            waitCards[2].style.color = data.waits.lock_wait_percent > 20 ? '#e53e3e' : '#667eea';
+            waitCards[3].style.color = data.waits.memory_wait_percent > 25 ? '#e53e3e' : '#667eea';
+            
+            console.log('Wait types actualizados:', data.waits);
+        }
+        
+    } catch (error) {
+        console.error('Error loading wait types:', error);
+    }
+}
+
+// Función mejorada para inicializar la pestaña de performance
+function initializePerformanceTab() {
+    console.log('Inicializando Performance tab...');
+    
+    if (!performanceChart) {
+        const ctx = document.getElementById('performanceChart')?.getContext('2d');
+        if (ctx) {
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'CPU Avg',
+                        data: [],
+                        borderColor: '#ed8936',
+                        backgroundColor: 'rgba(237, 137, 54, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }, {
+                        label: 'Memory Avg',
+                        data: [],
+                        borderColor: '#3182ce',
+                        backgroundColor: 'rgba(49, 130, 206, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Performance Trends - Últimas 24 horas'
+                        },
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    loadRealPerformanceData();
+}
+
+// Función actualizada para cargar datos reales de performance
+async function loadRealPerformanceData() {
+    if (!isAuthenticated) return;
+    
+    try {
+        await loadSlowQueries();
+        await loadFrequentQueries();
+        await loadWaitTypes();
+        await loadPerformanceTrends(); // Nueva función
+        await loadMissingIndexes();
+        await loadIndexFragmentation();
+        console.log('Datos reales de Performance cargados completamente');
+    } catch (error) {
+        console.error('Error cargando datos de Performance:', error);
+    }
+}
+
+// El resto del código JavaScript permanece igual...
 let systemChart;
 let performanceChart;
 let connectionsChart;
@@ -60,46 +199,6 @@ function showTab(tabName) {
                 break;
         }
     }, 100);
-}
-
-function initializePerformanceTab() {
-    console.log('Inicializando Performance tab...');
-    if (!performanceChart) {
-        const ctx = document.getElementById('performanceChart')?.getContext('2d');
-        if (ctx) {
-            performanceChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'CPU Avg',
-                        data: [],
-                        borderColor: '#ed8936',
-                        backgroundColor: 'rgba(237, 137, 54, 0.1)',
-                        tension: 0.1
-                    }, {
-                        label: 'Memory Avg',
-                        data: [],
-                        borderColor: '#3182ce',
-                        backgroundColor: 'rgba(49, 130, 206, 0.1)',
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Performance Trends - Últimas 24 horas'
-                        }
-                    }
-                }
-            });
-        }
-    }
-    
-    loadRealPerformanceData();
 }
 
 function initializeSessionsTab() {
@@ -285,21 +384,6 @@ function initializeRealtimeTab() {
     loadRealtimeData();
 }
 
-async function loadRealPerformanceData() {
-    if (!isAuthenticated) return;
-    
-    try {
-        await loadSlowQueries();
-        await loadFrequentQueries();
-        await loadWaitTypes();
-        await loadMissingIndexes();
-        await loadIndexFragmentation();
-        console.log('Datos reales de Performance cargados');
-    } catch (error) {
-        console.error('Error cargando datos de Performance:', error);
-    }
-}
-
 async function loadSlowQueries() {
     try {
         const response = await fetch('/api/monitoring/top-slow-queries');
@@ -404,29 +488,6 @@ async function loadFrequentQueries() {
     }
 }
 
-async function loadWaitTypes() {
-    try {
-        const response = await fetch('/api/monitoring/wait-types-stats');
-        const data = await response.json();
-        
-        if (data.error) {
-            console.error('Wait types error:', data.error);
-            return;
-        }
-        
-        const waitCards = document.querySelectorAll('#tab-performance .metrics-grid .metric-card .metric-value');
-        if (waitCards.length >= 4) {
-            waitCards[0].textContent = data.waits.cpu_wait_percent + '%';
-            waitCards[1].textContent = data.waits.io_wait_percent + '%';
-            waitCards[2].textContent = data.waits.lock_wait_percent + '%';
-            waitCards[3].textContent = data.waits.memory_wait_percent + '%';
-        }
-        
-    } catch (error) {
-        console.error('Error loading wait types:', error);
-    }
-}
-
 async function loadMissingIndexes() {
     try {
         const response = await fetch('/api/monitoring/missing-indexes');
@@ -447,7 +508,7 @@ async function loadMissingIndexes() {
         content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Sugested columns</th>';
         content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Impact</th>';
         content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Seeks/Scans</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">MejoraImprovement</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Improvement</th>';
         content += '</tr>';
         content += '</thead>';
         content += '<tbody>';
@@ -933,4 +994,4 @@ window.onload = function() {
             login();
         }
     });
-}
+};
