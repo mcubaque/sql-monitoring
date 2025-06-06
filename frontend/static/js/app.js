@@ -317,10 +317,10 @@ async function loadSlowQueries() {
         content += '<thead style="background: #f7fafc;">';
         content += '<tr>';
         content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Query</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Duración Prom (ms)</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Ejecuciones</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Base de Datos</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Última Ejecución</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Avg Duration (ms)</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Executions</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Database</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Last execution</th>';
         content += '</tr>';
         content += '</thead>';
         content += '<tbody>';
@@ -338,7 +338,7 @@ async function loadSlowQueries() {
                 content += '</tr>';
             });
         } else {
-            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No se encontraron consultas lentas recientes</td></tr>';
+            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No recent slow queries found</td></tr>';
         }
         
         content += '</tbody></table>';
@@ -348,7 +348,7 @@ async function loadSlowQueries() {
         console.error('Error loading slow queries:', error);
         const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[0];
         if (placeholder) {
-            placeholder.innerHTML = '<p style="color: #e53e3e;">Error cargando consultas lentas</p>';
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error loading slow queries</p>';
         }
     }
 }
@@ -370,10 +370,10 @@ async function loadFrequentQueries() {
         content += '<thead style="background: #f7fafc;">';
         content += '<tr>';
         content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Query</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Ejecuciones</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Promedio (ms)</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">CPU Total (ms)</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Base de Datos</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Executions</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Avg (ms)</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Total CPU (ms)</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Database</th>';
         content += '</tr>';
         content += '</thead>';
         content += '<tbody>';
@@ -389,7 +389,7 @@ async function loadFrequentQueries() {
                 content += '</tr>';
             });
         } else {
-            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No se encontraron consultas frecuentes</td></tr>';
+            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No frequent queries found</td></tr>';
         }
         
         content += '</tbody></table>';
@@ -399,7 +399,7 @@ async function loadFrequentQueries() {
         console.error('Error loading frequent queries:', error);
         const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[1];
         if (placeholder) {
-            placeholder.innerHTML = '<p style="color: #e53e3e;">Error cargando consultas frecuentes</p>';
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error loading frecuent queries</p>';
         }
     }
 }
@@ -443,11 +443,11 @@ async function loadMissingIndexes() {
         let content = '<table style="width: 100%; border-collapse: collapse;">';
         content += '<thead style="background: #f7fafc;">';
         content += '<tr>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tabla</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Columnas Sugeridas</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Impacto</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Table</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Sugested columns</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Impact</th>';
         content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Seeks/Scans</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Mejora</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">MejoraImprovement</th>';
         content += '</tr>';
         content += '</thead>';
         content += '<tbody>';
@@ -465,7 +465,7 @@ async function loadMissingIndexes() {
                 content += '</tr>';
             });
         } else {
-            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No se encontraron recomendaciones de índices</td></tr>';
+            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">Index recomendations not found</td></tr>';
         }
         
         content += '</tbody></table>';
@@ -475,7 +475,7 @@ async function loadMissingIndexes() {
         console.error('Error loading missing indexes:', error);
         const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[2];
         if (placeholder) {
-            placeholder.innerHTML = '<p style="color: #e53e3e;">Error cargando índices faltantes</p>';
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error loading missing indexes</p>';
         }
     }
 }
@@ -496,11 +496,11 @@ async function loadIndexFragmentation() {
         let content = '<table style="width: 100%; border-collapse: collapse;">';
         content += '<thead style="background: #f7fafc;">';
         content += '<tr>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Índice</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Tabla</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Fragmentación %</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Páginas</th>';
-        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Recomendación</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Index</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Table</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Fragmentation %</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Pages</th>';
+        content += '<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Recomendation</th>';
         content += '</tr>';
         content += '</thead>';
         content += '<tbody>';
@@ -520,7 +520,7 @@ async function loadIndexFragmentation() {
                 content += '</tr>';
             });
         } else {
-            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No se encontraron índices con fragmentación significativa</td></tr>';
+            content += '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #718096;">No indexes with significant fragmentation found</td></tr>';
         }
         
         content += '</tbody></table>';
@@ -530,7 +530,7 @@ async function loadIndexFragmentation() {
         console.error('Error loading index fragmentation:', error);
         const placeholder = document.querySelectorAll('#tab-performance .loading-placeholder')[3];
         if (placeholder) {
-            placeholder.innerHTML = '<p style="color: #e53e3e;">Error cargando fragmentación de índices</p>';
+            placeholder.innerHTML = '<p style="color: #e53e3e;">Error loading index fragmentation</p>';
         }
     }
 }
