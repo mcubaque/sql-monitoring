@@ -25,9 +25,12 @@ async def root():
             <div class="header-section">
                 <h1>SQL Server Monitoring Dashboard</h1>
                 <div class="nav-tabs">
-                    <button class="tab-btn active" onclick="showTab('dashboard')">Dashboard</button>
-                    <button class="tab-btn" onclick="showTab('performance')">Performance</button>
-                    <button class="tab-btn" onclick="showTab('sessions')">Sessions</button>
+                    <button class="tab-btn active" onclick="showTab('dashboard')">🏠 Dashboard</button>
+                    <button class="tab-btn" onclick="showTab('performance')">📊 Performance</button>
+                    <button class="tab-btn" onclick="showTab('sessions')">👥 Sessions & Users</button>
+                    <button class="tab-btn" onclick="showTab('security')">🔒 Security & Access</button>
+                    <button class="tab-btn" onclick="showTab('maintenance')">🛠️ Maintenance</button>
+                    <button class="tab-btn" onclick="showTab('realtime')">⚡ Real-Time</button>
                     <button class="logout-btn" onclick="logout()">Logout</button>
                 </div>
             </div>
@@ -44,6 +47,7 @@ async def root():
                 </div>
             </div>
             
+            <!-- 🏠 Dashboard Principal (Overview) -->
             <div id="tab-dashboard" class="tab-content">
                 <div class="section-card">
                     <h3>🔗 Server Status</h3>
@@ -124,17 +128,340 @@ async def root():
                 </div>
             </div>
             
+            <!-- 📊 Performance -->
             <div id="tab-performance" class="tab-content" style="display:none;">
                 <div class="section-card">
-                    <h3>🚀 Performance Analytics</h3>
-                    <p>Performance metrics coming soon...</p>
+                    <h3>🐌 Top Consultas Lentas</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Cargando consultas más lentas...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>🔄 Consultas Más Frecuentes</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Analizando consultas por volumen de ejecución...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>⏳ Wait Types Statistics</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h4>CPU Wait</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>I/O Wait</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Lock Wait</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Memory Wait</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>📈 Performance Trends (24h)</h3>
+                    <div class="chart-container">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>📋 Índices Faltantes</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Buscando recomendaciones de índices...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>🔧 Fragmentación de Índices</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Analizando fragmentación de índices...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
             
+            <!-- 👥 Sessions & Users -->
             <div id="tab-sessions" class="tab-content" style="display:none;">
                 <div class="section-card">
-                    <h3>👥 Sessions & Users</h3>
-                    <p>Session details coming soon...</p>
+                    <h3>🔍 Sesiones Activas Detalladas</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Cargando sesiones activas...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>📊 Estadísticas de Usuarios</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h4>Usuarios Únicos</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Conexiones por Usuario</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Aplicaciones Conectadas</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Hosts Remotos</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>🚫 Bloqueos y Deadlocks</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Monitoreando bloqueos en tiempo real...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>⚠️ Sesiones Problemáticas</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Identificando sesiones con problemas...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>📈 Histórico de Conexiones</h3>
+                    <div class="chart-container">
+                        <canvas id="connectionsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 🔒 Security & Access -->
+            <div id="tab-security" class="tab-content" style="display:none;">
+                <div class="section-card">
+                    <h3>❌ Logins Fallidos</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Monitoreando intentos de acceso fallidos...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>👤 Usuarios Conectados por BD</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h4>Usuarios Admin</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Usuarios Regulares</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Cuentas de Servicio</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Conexiones SQL Auth</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>🔐 Actividad Privilegiada</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Monitoreando operaciones administrativas...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>🏗️ Cambios de Esquema (DDL)</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Rastreando cambios estructurales recientes...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>🔍 Auditoría de Permisos</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Analizando permisos de usuarios y roles...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 🛠️ Maintenance -->
+            <div id="tab-maintenance" class="tab-content" style="display:none;">
+                <div class="section-card">
+                    <h3>💾 Estado de Backups</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h4>Último Full Backup</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Último Differential</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Último Log Backup</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>BDs sin Backup</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>🤖 SQL Agent Jobs</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Verificando estado de trabajos programados...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>📁 Espacio de Archivos</h3>
+                    <div class="chart-container">
+                        <canvas id="diskSpaceChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>📊 Estadísticas de Tablas</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Analizando tamaño y crecimiento de tablas...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>✅ Integrity Checks (DBCC)</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Verificando última ejecución de DBCC CHECKDB...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>📈 Crecimiento de Bases de Datos</h3>
+                    <div class="chart-container">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ⚡ Real-Time Monitoring -->
+            <div id="tab-realtime" class="tab-content" style="display:none;">
+                <div class="section-card">
+                    <h3>🔴 Live Query Activity</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Monitoreando consultas en ejecución...</p>
+                            <div class="realtime-indicator">
+                                <span class="pulse-dot"></span>
+                                <span>Actualizando cada 2 segundos</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>⏱️ Resource Waits en Tiempo Real</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h4>Queries Esperando</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>I/O Waits</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Lock Waits</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>CPU Waits</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>🔒 Lock Monitoring</h3>
+                    <div class="table-container">
+                        <div class="loading-placeholder">
+                            <p>Monitoreando bloqueos activos...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>💿 I/O Statistics (Live)</h3>
+                    <div class="chart-container">
+                        <canvas id="ioChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>🔗 Connection Pool Status</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h4>Active Connections</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Idle Connections</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Sleeping Sessions</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Background Tasks</h4>
+                            <div class="metric-value">--</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <h3>⚡ Performance Counters</h3>
+                    <div class="chart-container">
+                        <canvas id="realTimeChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
