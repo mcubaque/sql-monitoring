@@ -23,7 +23,7 @@ async def root():
     <body>
         <div id="app">
             <div class="header-section">
-                <h1>SQL Server Monitoring Dashboard</h1>
+                <h1>Rithm - SQL Server Monitoring Dashboard</h1>
                 <div class="nav-tabs">
                     <button class="tab-btn active" onclick="showTab('dashboard')">🏠 Dashboard</button>
                     <button class="tab-btn" onclick="showTab('performance')">📊 Performance</button>
@@ -75,15 +75,15 @@ async def root():
                     <h3>📊 System Metrics</h3>
                     <div class="metrics-grid">
                         <div class="metric-card">
-                            <h4>Remote CPU</h4>
+                            <h4>CPU</h4>
                             <div class="metric-value" id="cpu-percent">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Remote Memory</h4>
+                            <h4>Memory</h4>
                             <div class="metric-value" id="memory-percent">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Remote Disk</h4>
+                            <h4>Disk</h4>
                             <div class="metric-value" id="disk-percent">--</div>
                         </div>
                         <div class="metric-card">
@@ -131,19 +131,19 @@ async def root():
             <!-- 📊 Performance -->
             <div id="tab-performance" class="tab-content" style="display:none;">
                 <div class="section-card">
-                    <h3>🐌 Top Consultas Lentas</h3>
+                    <h3>🐌 Top Slow Queries</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Cargando consultas más lentas...</p>
+                            <p>Loading slowest queries...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>🔄 Consultas Más Frecuentes</h3>
+                    <h3>🔄 Most Frequent Queries</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Analizando consultas por volumen de ejecución...</p>
+                            <p>Analyzing queries by execution volume...</p>
                         </div>
                     </div>
                 </div>
@@ -178,19 +178,19 @@ async def root():
                 </div>
                 
                 <div class="section-card">
-                    <h3>📋 Índices Faltantes</h3>
+                    <h3>📋 Missing Indexes</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Buscando recomendaciones de índices...</p>
+                            <p>Searching for index recommendations...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>🔧 Fragmentación de Índices</h3>
+                    <h3>🔧 Index Fragmentation</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Analizando fragmentación de índices...</p>
+                            <p>Analyzing index fragmentation...</p>
                         </div>
                     </div>
                 </div>
@@ -199,56 +199,56 @@ async def root():
             <!-- 👥 Sessions & Users -->
             <div id="tab-sessions" class="tab-content" style="display:none;">
                 <div class="section-card">
-                    <h3>🔍 Sesiones Activas Detalladas</h3>
+                    <h3>🔍 Detailed Active Sessions</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Cargando sesiones activas...</p>
+                            <p>Loading active sessions...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>📊 Estadísticas de Usuarios</h3>
+                    <h3>📊 User Statistics</h3>
                     <div class="metrics-grid">
                         <div class="metric-card">
-                            <h4>Usuarios Únicos</h4>
+                            <h4>Unique users</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Conexiones por Usuario</h4>
+                            <h4>Connections per User</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Aplicaciones Conectadas</h4>
+                            <h4>Connected Applications</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Hosts Remotos</h4>
+                            <h4>Remote Hosts</h4>
                             <div class="metric-value">--</div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>🚫 Bloqueos y Deadlocks</h3>
+                    <h3>🚫 Locks and Deadlocks</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Monitoreando bloqueos en tiempo real...</p>
+                            <p>Monitoring locks in real time...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>⚠️ Sesiones Problemáticas</h3>
+                    <h3>⚠️ Problematic Sessions</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Identificando sesiones con problemas...</p>
+                            <p>Identifying sessions with issues...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>📈 Histórico de Conexiones</h3>
+                    <h3>📈 Connection History</h3>
                     <div class="chart-container">
                         <canvas id="connectionsChart"></canvas>
                     </div>
@@ -258,59 +258,59 @@ async def root():
             <!-- 🔒 Security & Access -->
             <div id="tab-security" class="tab-content" style="display:none;">
                 <div class="section-card">
-                    <h3>❌ Logins Fallidos</h3>
+                    <h3>❌ Failed Logins</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Monitoreando intentos de acceso fallidos...</p>
+                            <p>Monitoring failed login attempts...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>👤 Usuarios Conectados por BD</h3>
+                    <h3>👤 Users Connected per DB</h3>
                     <div class="metrics-grid">
                         <div class="metric-card">
-                            <h4>Usuarios Admin</h4>
+                            <h4>Admin Users</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Usuarios Regulares</h4>
+                            <h4>Regular Users</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Cuentas de Servicio</h4>
+                            <h4>Service Accounts</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Conexiones SQL Auth</h4>
+                            <h4>SQL Auth Connections</h4>
                             <div class="metric-value">--</div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>🔐 Actividad Privilegiada</h3>
+                    <h3>🔐 Privileged Activity</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Monitoreando operaciones administrativas...</p>
+                            <p>Monitoring administrative operations...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>🏗️ Cambios de Esquema (DDL)</h3>
+                    <h3>🏗️ Schema Changes (DDL)</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Rastreando cambios estructurales recientes...</p>
+                            <p>Tracking recent structural changes...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>🔍 Auditoría de Permisos</h3>
+                    <h3>🔍 Permissions Audit</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Analizando permisos de usuarios y roles...</p>
+                            <p>Analyzing user and role permissions...</p>
                         </div>
                     </div>
                 </div>
@@ -319,22 +319,22 @@ async def root():
             <!-- 🛠️ Maintenance -->
             <div id="tab-maintenance" class="tab-content" style="display:none;">
                 <div class="section-card">
-                    <h3>💾 Estado de Backups</h3>
+                    <h3>💾 Backups Status</h3>
                     <div class="metrics-grid">
                         <div class="metric-card">
-                            <h4>Último Full Backup</h4>
+                            <h4>Last Full Backup</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Último Differential</h4>
+                            <h4>Last Differential</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>Último Log Backup</h4>
+                            <h4>Last Log Backup</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
-                            <h4>BDs sin Backup</h4>
+                            <h4>BDs Without Backup</h4>
                             <div class="metric-value">--</div>
                         </div>
                     </div>
@@ -344,23 +344,23 @@ async def root():
                     <h3>🤖 SQL Agent Jobs</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Verificando estado de trabajos programados...</p>
+                            <p>Checking status of scheduled jobs...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>📁 Espacio de Archivos</h3>
+                    <h3>📁 File Space</h3>
                     <div class="chart-container">
                         <canvas id="diskSpaceChart"></canvas>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>📊 Estadísticas de Tablas</h3>
+                    <h3>📊 Table Statistics</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Analizando tamaño y crecimiento de tablas...</p>
+                            <p>Analyzing table size and growth...</p>
                         </div>
                     </div>
                 </div>
@@ -369,13 +369,13 @@ async def root():
                     <h3>✅ Integrity Checks (DBCC)</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Verificando última ejecución de DBCC CHECKDB...</p>
+                            <p>Checking last execution of DBCC CHECKDB...</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="section-card">
-                    <h3>📈 Crecimiento de Bases de Datos</h3>
+                    <h3>📈 Database Growth</h3>
                     <div class="chart-container">
                         <canvas id="growthChart"></canvas>
                     </div>
@@ -388,10 +388,10 @@ async def root():
                     <h3>🔴 Live Query Activity</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Monitoreando consultas en ejecución...</p>
+                            <p>Monitoring running queries...</p>
                             <div class="realtime-indicator">
                                 <span class="pulse-dot"></span>
-                                <span>Actualizando cada 2 segundos</span>
+                                <span>Updating every 2 seconds</span>
                             </div>
                         </div>
                     </div>
@@ -401,7 +401,7 @@ async def root():
                     <h3>⏱️ Resource Waits en Tiempo Real</h3>
                     <div class="metrics-grid">
                         <div class="metric-card">
-                            <h4>Queries Esperando</h4>
+                            <h4>Waiting Queries</h4>
                             <div class="metric-value">--</div>
                         </div>
                         <div class="metric-card">
@@ -423,7 +423,7 @@ async def root():
                     <h3>🔒 Lock Monitoring</h3>
                     <div class="table-container">
                         <div class="loading-placeholder">
-                            <p>Monitoreando bloqueos activos...</p>
+                            <p>Monitoring active locks...</p>
                         </div>
                     </div>
                 </div>
