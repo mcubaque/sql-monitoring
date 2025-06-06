@@ -1,0 +1,47 @@
+services:
+  backend:
+    build: ./backend
+    container_name: sql-monitoring-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./data/logs:/app/logs
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: sql-monitoring-redis
+    volumes:
+      - ./data/redis:/data
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: sql-monitoring-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./frontend/static:/usr/share/nginx/html/static
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+networks:
+  monitoring-network:
+    driver: bridge
+
+volumes:
+  redis-data:
